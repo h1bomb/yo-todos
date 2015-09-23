@@ -4,106 +4,80 @@
 
 将会建立多个分支阐述创建一个todo list的过程。
 
-第二步：
+第三步：
 
-### 编写服务接口配置
-需要存储todo list的服务，这个例子数据和状态主要保存服务端，
+### 编写前端view对应后端服务的接口配置和接口适配
 
-* 添加一个todo;
-* 编辑一个todo;
-* 获取todo列表；
-* 切换todo的状态；
-* 删除todo；
-* 清除已完成的todo；
+```javascript
+exports.domain = 'http://localhost:3000';
+exports.res =
+    [{
+    route: '/',
+    method: 'GET',
+    view: 'pages/index',
+    url: '/todos/',
+    params: []
+}, {
+    route: '/:state',
+    method: 'GET',
+    view: 'pages/index',
+    url: '/todos/',
+    adapter: 'index',
+    params: []
+}];
+```
+目前的todo的view只有一个，为了使不同状态的匹配加了"/:state"的路由。
+后端映射到同一个接口。
 
-代码如下：
+后端服务也许无法满足你前端展示的要求，所以，会在适配层，加一些返回数据结构的处理。
+适配层的业务注入规约：会找到interface的路由作为注入的原则（路由名称+请求方法），或者指定路由的适配的业务模块。
+代码如下（server/adapters/index.js）
+```javascript
+exports.get = function(data, req, res) {
+    var states = ['active', 'completed'];
+    var curState = 'all';
+    var curStateVal = 3;
+    data.completedTodos = false; //完成的todos
+    data.activeTodoWord = 'items';//todo单位的单复数
+    data.activeTodoCount = 0;//当前未完成todo
+    data.allCount = data.data.length;//所有的todo数量
+    data.module = 'todos';//js的入口模块
+    var curData = [];
 
-server/stub/router.js
-
-``` javascript
-var list = [];
-var toggleAll = false;
-module.exports = function(app) {
-
-    //添加
-    app.post('/todo', function(req, res) {
-        if (req.body.todo) {
-            list.push({
-                id: uuid(),
-                todo: req.body.todo,
-                state: 0
-            });
-            res.send(ret(true));
+    for (var j = 0; j < states.length; j++) { //判断过滤条件
+        if (states[j] === req.proxyParams.params.state) {
+            curState = states[j];
+            curStateVal = j;
+            break;
         } else {
-            res.send(ret(false));
+            curState = 'all';
+            curStateVal = 3;
         }
-    });
+    }
 
-    //编辑保存
-    app.put('/todo/:id', function(req, res) {
-        var saved = false,
-            state;
-        if (req.params.id) {
-            for (var i = 0; i < list.length; i++) {
-                if (req.params.id === list[i].id) {
-                    setval(req.body.todo, req.body.state, list[i]);
-                    saved = true;
-                }
-            }
+    data[curState] = true; //设置当前的过滤条件
+
+    for (var i = 0; i < data.data.length; i++) {
+        if (data.data[i].state === 1) { //设置是否有完成
+            data.completedTodos = true;
+            data.data[i].completed = true;
+        } else {
+            data.activeTodoCount++; //设置todo的数据
         }
-        res.send(ret(saved));
-    });
 
-    //首页
-    app.get('/todos', function(req, res) {
-        var data = ret(true, list);
-        res.send(data);
-    });
-
-    //删除
-    app.delete('/todo/:id', function(req, res) {
-        var isDel = false;
-        if (req.params.id) {
-            for (var i = 0; i < list.length; i++) {
-                if (req.params.id === list[i].id) {
-                    list.splice(i, 1);
-                    isDel = true;
-                    break;
-                }
-            }
+        if (data.data[i].state === curStateVal) {
+            curData.push(data.data[i]); //过滤数据
         }
-        res.send(ret(isDel));
-    });
+    }
 
-    //切换状态
-    app.put('/todos/toggleall', function(req, res) {
-        for (var i = 0; i < list.length; i++) {
-            if (!toggleAll) {
-                list[i].state = 1;
-            } else {
-                list[i].state = 0;
-            }
-        }
-        toggleAll = !toggleAll;
-        res.send(ret(true));
-    });
+    if (curStateVal !== 3) { //设置过滤后的数据
+        data.data = curData;
+    }
 
-    //清除完成项
-    app.delete('/todos/completed', function(req, res) {
-        var unCompleted = [];
-        for (var i = 0; i < list.length; i++) {
-            if (list[i].state === 0) {
-                unCompleted.push(list[i]);
-            }
-        }
-        list = unCompleted;
-        return res.send(ret(true, list));
-    });
+    if (data.activeTodoCount === 1) { //设置展示单复数
+        data.activeTodoWord = 'item';
+    }
+    return data;
 }
 
-...
-
 ```
-可以用postman类似的http客户端测试下服务：
-
-![postman](http://7wy47w.com1.z0.glb.clouddn.com/C031899C-515A-455E-9013-D5126B1ABDAE.png)
