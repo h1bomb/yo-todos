@@ -7,23 +7,11 @@
 第四步：
 
 
-### 编写模板
 
-拆解页面结构：
+### 编写css样式
+编写样式采用compass的方式，用compass watch，实时编译成css。
 
-```
-layout
-  \_header
-  \_todo
-    \_header
-    \_section
-    \_footer
-    \_bottom
-  \_footer
+到client目录，直接`compass watch`
 
-```
-
-其中，header，todo/header,todo/section,todo/footer,todo/bottom,footer都是partials
-采用handlebars模板编写。
-当前后端返回数据时，在前端进行数据绑定生成HTML。
-![没有样式的视图](http://7wy47w.com1.z0.glb.clouddn.com/78F31156-3915-4DBB-847C-FFF611125C2C.png)
+可以按照partials，拆分样式。
+配置生成文件，在config.rb,或者使用gulp进行的构建。
