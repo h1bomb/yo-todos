@@ -12,7 +12,10 @@
   "spm": {
     "main": "index.js",
     "dependencies": {
-      "jquery": "1.8.3"
+      "jquery": "1.8.3",
+      "jquery-pjax-183": "1.0.0",
+      "nprogress-183": "0.1.6",
+      "import-style": "1.0.0"
     },
     "devDependencies": {
       "expect.js": "0.3.1"

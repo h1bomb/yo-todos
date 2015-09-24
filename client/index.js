@@ -1,4 +1,4 @@
 var demo;
 
-require('./js/default');
+require('./js/todos');
 module.exports = demo;
