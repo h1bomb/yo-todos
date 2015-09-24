@@ -4,217 +4,40 @@
 
 将会建立多个分支阐述创建一个todo list的过程。
 
-### 编写JS前端逻辑
-前端需要操作服务端的todo的内容，并且展现，主要是增删查改这些操作，同时绑定相关的事件。这个例子里面使用jquery和pjax等，所以需要在`client`下的`package.json`,添加依赖包：
-```javascript
-  "spm": {
-    "main": "index.js",
-    "dependencies": {
-      "jquery": "1.8.3",
-      "jquery-pjax-183": "1.0.0",
-      "nprogress-183": "0.1.6",
-      "import-style": "1.0.0"
-    },
-   ...
+### 构建项目
+到此为止，已经把todos的功能已全部实现但是，工作流程，才走了一半，后面将会执行构建，将现有的项目，部署到测试环境，当测试环境测试没有问题，讲发布到生产。
+
+而做这些事情，可以由gulp来完成，gulp可以编写管道式的构建过程，高效的将需要的自动化过程执行。
+目前前端的gulp涉及如下的任务：
+
+* 运行server
+* compass的实时预处理
+* js的合并和库文件的合并
+* 样式的合并
+* 部署到CDN
+
+代码清单详见：client/gulpfile.js。
+
+#### 测试代码打包
 ```
-需要执行`spm install`。
+cd client
+gulp
 
-前端的主要逻辑在`js/todos.js`里面，代码如下：
-```javascript
-/**
- * todos
- *
- * todos的前端代码
- * 只提交todo的操作，服务端维护todo状态
- */
+```
+测试环境运行
+```
+cd ..
+NODE_ENV=test node server/app
+```
+#### 生产环境发布和运行
 
-var $ = require('jquery');
-var NProgress = require('nprogress-183');
-require('jquery-pjax-183');
-
-/**
- * 初始化Pjax
- *
- * @return void
- */
-function initPjax() {
-    $(document).pjax('a', '#pjax-container');
-
-    $(document).on('pjax:start', function() {
-        NProgress.start();
-    });
-
-    $(document).on('pjax:end', function() {
-        NProgress.done();
-    });
-}
-
-var ENTER_KEY = 13; //回车键
-var ESCAPE_KEY = 27; //esc键
-
-var $newTodoInput = $("#new-todo"), //新建一个todo
-    $listLi = $("#todo-list li"), //列表单元
-    $listToggle = $("#todo-list .toggle"), //切换todo状态
-    $listLiEdit = $("#todo-list .edit"), //编辑输入
-    $toggleall = $("#toggle-all"), //切换所有的todo状态
-    $listDestroy = $("#todo-list .destroy"), //删除todo
-    $clearCompleted = $("#clear-completed"); //清除完成的
-
-
-/**
- * 界面操作对象
- * @type {Object}
- */
-var actions = {
-    toggleAll: {
-        url: '/todos/toggleall',
-        method: 'PUT',
-        eventHandle: [{
-            event: 'click',
-            elem: $toggleall
-        }]
-    },
-    add: {
-        url: '/todo',
-        method: 'POST',
-        eventHandle: [{
-            event: 'keyup',
-            elem: $newTodoInput,
-            handle: function(e) {
-                if (e.which === ENTER_KEY) {
-                    actions.add.data = {
-                        todo: $(e.target).val() + ''
-                    };
-                    $(e.target).val('');
-                    return true;
-                }
-            }
-        }]
-    },
-    edit: {
-        url: '/todo/',
-        method: 'PUT',
-        before: function(elem) {
-            this.params = elem.parents('li').attr('data-id');
-
-            var state = elem.parents('li').find('.toggle').attr('checked') ? 1 : 0;
-
-            this.data = {
-                todo: elem.parents('li').find('label').text(),
-                state: state
-            };
-        },
-        eventHandle: [{
-            event: 'click',
-            elem: $listToggle
-        }, {
-            event: 'dblclick',
-            elem: $listLi,
-            handle: function(e) {
-                var $input = $(e.target).closest('li').addClass('editing').find('.edit');
-                $input.val($input.val()).focus();
-                return false;
-            }
-        }, {
-            event: 'keyup',
-            elem: $listLiEdit,
-            handle: function(e) {
-                var val = e.target.value;
-                if (e.which === ENTER_KEY) {
-                    $(e.target).blur();
-
-                    $(e.target).parents('li').find('label').text(val);
-                    return true;
-                }
-
-                if (e.which === ESCAPE_KEY) {
-                    $(e.target).blur();
-                }
-
-                return false;
-            }
-
-        }, {
-            event: 'blur',
-            elem: $listLiEdit,
-            handle: function(e) {
-                $(e.target).parents('li').removeClass('editing');
-            }
-        }]
-    },
-    remove: {
-        url: '/todo/',
-        method: 'DELETE',
-        before: function(elem) {
-            this.params = elem.parents('li').attr('data-id');
-        },
-        eventHandle: [{
-            event: 'click',
-            elem: $listDestroy,
-            handle: function() {
-                return true;
-            }
-        }]
-    },
-    clearCompleted: {
-        url: '/todos/completed',
-        method: 'DELETE',
-        eventHandle: [{
-            event: 'click',
-            elem: $clearCompleted
-        }]
-    }
-}
-
-/**
- * 事件绑定操作
- * @return {void}
- */
-function bind() {
-    $.each(actions, function(key, value) {
-        $.each(value.eventHandle, function(index, hb) {
-            hb.elem.live(hb.event, function(e) {
-                var isSend = false;
-                if (hb.handle) {
-                    isSend = hb.handle(e);
-                } else {
-                    isSend = true;
-                }
-                if (isSend) {
-                    if (value.before) {
-                        value.before($(e.target));
-                    }
-                    send(value);
-                }
-            });
-        });
-    });
-    initPjax();
-}
-
-/**
- * 发送操作信息
- * @param  {Object} hb
- * @return {void}
- */
-function send(hb) {
-    var url = hb.url + (hb.params || '');
-    $.ajax({
-        url: url,
-        type: hb.method,
-        data: hb.data ? hb.data : null,
-        dataType: "json"
-    }).done(function(data) {
-        if (data.opts) {
-            $.pjax.reload('#pjax-container');
-        } else {
-            alert('something wrong!');
-        }
-    }).fail(function() {
-        alert('something wrong!');
-    });
-}
-
-
-bind();
+把代码部署到CDN
+```
+cd client
+gulp dist
+```
+运行生产环境,需要保证服务不会挂掉，所以需要使用MP2来进行进程守护，以及服务监控和治理。
+```
+cd ..
+NODE_ENV=production pm2 start server/app
 ```

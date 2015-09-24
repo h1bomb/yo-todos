@@ -1,7 +1,7 @@
 {
-  "name": "demo",
+  "name": "todos",
   "version": "0.1.0",
-  "description": "yo demo",
+  "description": "yo todo",
   "keywords": [],
   "homepage": "",
   "author": "demo",
@@ -40,11 +40,6 @@
   "scripts": {
     "test": "spm test",
     "build": "spm build"
-  },
-  "main": "app.js",
-  "directories": {
-    "example": "examples",
-    "test": "tests"
   },
   "license": "ISC",
   "dependencies": {}
